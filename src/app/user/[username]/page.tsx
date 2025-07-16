@@ -1,48 +1,49 @@
 // 📦 Import Supabase server-side client
 import { createClient } from "@/lib/supabase/server";
-
+import { notFound } from "next/navigation";
 import Image from "next/image";
 
-// 🧾 Khai báo kiểu props cho component
-interface UserPageProps {
+// 🧾 Định nghĩa props cho component, dùng đúng kiểu của App Router
+type UserProfileProps = {
   params: {
     username: string;
   };
-}
+};
 
-// 🧠 Component server-side: trang cá nhân người dùng
-export default async function UserProfile({ params }: UserPageProps) {
-  // ✅ Tạo Supabase client cho môi trường server
+// 🕒 Cấu hình ISR: dữ liệu sẽ revalidate mỗi 60 giây
+export const revalidate = 60;
+
+// 🧠 Component server-side: trang hồ sơ người dùng
+export default async function UserProfile({ params }: UserProfileProps) {
+  // ✅ Tạo Supabase client (không cần await nếu client không async)
   const supabase = await createClient();
 
-  // 🔍 Truy vấn người dùng theo `username`
+  // 🔍 Truy vấn user theo username
   const { data: user, error } = await supabase
     .from("users")
     .select("username, full_name, bio, avatar_url")
     .eq("username", params.username)
     .single();
 
-  // ❌ Trường hợp không tìm thấy user hoặc có lỗi truy vấn
+  // ❌ Nếu không có user hoặc xảy ra lỗi => trả về trang 404
   if (error || !user) {
-    return (
-      <div className="p-6 text-center text-red-500">
-        Người dùng <b>@{params.username}</b> không tồn tại.
-      </div>
-    );
+    notFound(); // Sử dụng API của Next.js để render 404
   }
 
-  // ✅ Trả về giao diện hồ sơ người dùng
+  // ✅ Hiển thị hồ sơ người dùng
   return (
     <div className="p-6 max-w-xl mx-auto">
       <div className="flex items-center space-x-4">
-        {/* Avatar người dùng */}
+        {/* 🖼 Avatar người dùng (dùng <Image /> để tối ưu hiệu suất) */}
         <Image
           src={user.avatar_url || "/default-avatar.png"}
           alt={`Avatar of ${user.username}`}
-          className="w-16 h-16 rounded-full object-cover border"
+          width={64}
+          height={64}
+          className="rounded-full object-cover border"
         />
 
-        {/* Tên và username */}
+        {/* 🧑 Tên và username */}
         <div>
           <h1 className="text-2xl font-semibold">@{user.username}</h1>
           {user.full_name && (
@@ -53,7 +54,7 @@ export default async function UserProfile({ params }: UserPageProps) {
         </div>
       </div>
 
-      {/* Tiểu sử cá nhân */}
+      {/* 📄 Tiểu sử (bio) nếu có */}
       {user.bio && (
         <div className="mt-4 text-gray-800 dark:text-gray-200 whitespace-pre-line">
           {user.bio}
