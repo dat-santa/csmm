@@ -1,16 +1,12 @@
-// src/components/Header.tsx
+'use client';
 
-"use client"; // ✅ Bắt buộc để component chạy trên client-side (vì dùng hooks như useEffect, useState)
-
-// ✅ Import các hook từ React và Next.js
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { User } from '@supabase/supabase-js';
 
-// ✅ Import hàm tạo Supabase client và kiểu dữ liệu User
-import { createClient } from "@/lib/supabase/client";
-import { User } from "@supabase/supabase-js";
-
-// ✅ Import các component cần thiết từ shadcn/ui đã cài đặt
+// UI components (Shadcn UI)
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,161 +17,145 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
-import Link from "next/link";
+import { Skeleton } from '@/components/ui/skeleton';
 
-// ✅ Định nghĩa kiểu dữ liệu cho `profile` để đảm bảo code chặt chẽ
-// Chúng ta sẽ lấy dữ liệu này từ bảng `profiles` trong DB
+// Kiểu dữ liệu cho bảng profiles
 type Profile = {
   username: string;
   avatar_url: string;
   full_name: string;
 };
 
-// ====================================================================
-// =================== BẮT ĐẦU COMPONENT HEADER ======================
-// ====================================================================
-
 export default function Header() {
-  // ✅ Khởi tạo các hook và client cần thiết bên trong component
   const supabase = createClient();
   const router = useRouter();
 
-  // ✅ State để lưu toàn bộ object người dùng từ Supabase, không chỉ avatar
+  // Trạng thái lưu user auth và profile riêng
   const [user, setUser] = useState<User | null>(null);
-  // ✅ State để lưu thông tin profile (username, full_name, etc.) từ bảng `profiles`
   const [profile, setProfile] = useState<Profile | null>(null);
-  // ✅ State để quản lý trạng thái loading, giúp cải thiện UX
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Trạng thái loading ban đầu
 
-  // ✅ Hàm tiện ích để lấy chữ cái đầu của tên, dùng cho Avatar Fallback
-  const getInitials = (name: string | null | undefined): string => {
-    if (!name) return "??"; // Trả về '??' nếu không có tên
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  // 👉 Tạo chữ viết tắt fallback cho avatar nếu không có ảnh
+  const getInitials = (name?: string | null): string => {
+    if (!name) return "??";
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
   };
 
-  // ✅ useEffect sẽ chạy một lần khi component được mount để lấy thông tin user
-  // và lắng nghe các thay đổi về trạng thái đăng nhập.
+  // 👉 Tự động bắt sự kiện thay đổi auth khi đăng nhập/đăng xuất
   useEffect(() => {
-    // Hàm async để lấy dữ liệu ban đầu
-    const fetchInitialData = async () => {
-      // 1. Lấy thông tin user đang đăng nhập
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        setUser(user); // Cập nhật state user
-
-        // 2. Dùng user.id để lấy profile tương ứng từ bảng `profiles`
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('username, avatar_url, full_name')
-          .eq('id', user.id)
-          .single(); // .single() để lấy về 1 object duy nhất
-
-        if (profileData) {
-          setProfile(profileData); // Cập nhật state profile
-        }
-      }
-      setLoading(false); // Hoàn tất loading
-    };
-
-    fetchInitialData();
-
-    // 3. Lắng nghe sự kiện auth (login, logout) để tự động cập nhật UI
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        // Nếu user logout (currentUser là null), reset profile
-        if (!currentUser) {
+      async (_event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+
+          // Gọi Supabase để lấy thông tin từ bảng `profiles`
+          const { data: profileData, error } = await supabase
+            .from('profiles')
+            .select('username, avatar_url, full_name')
+            .eq('id', session.user.id)
+            .single();
+
+          if (!error) {
+            setProfile(profileData);
+          } else {
+            console.error('Error fetching profile:', error.message);
+            setProfile(null);
+          }
+        } else {
+          // Không có session → reset state
+          setUser(null);
           setProfile(null);
         }
-        // Nếu có sự thay đổi (ví dụ user vừa login), fetch lại data
-        else if (_event === 'SIGNED_IN') {
-           fetchInitialData();
-        }
+
+        setLoading(false);
       }
     );
 
-    // ✅ Cleanup: Hủy lắng nghe khi component bị unmount để tránh memory leak
+    // Cleanup: hủy listener khi component unmount
     return () => {
-      authListener.subscription.unsubscribe();
+      authListener?.subscription?.unsubscribe();
     };
-  }, [supabase]); // Dependency là supabase client
+  }, [supabase]);
 
-  // --- CÁC HÀM XỬ LÝ SỰ KIỆN ---
-
+  // 👉 Trigger đăng nhập với Google (One Tap hoặc popup)
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.href, // Quay lại đúng trang hiện tại sau khi login
-      },
+      options: { redirectTo: window.location.href },
     });
   };
 
+  // 👉 Trigger đăng xuất
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setProfile(null); // Xóa profile khỏi state
-    router.push('/'); // Điều hướng về trang chủ
+    router.push('/');
   };
-
-  // --- PHẦN RENDER GIAO DIỆN ---
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
-        {/* ✅ Logo hoặc tên trang web bên trái */}
-        <Link href="/" className="text-xl font-bold">CSMM</Link>
+        {/* Logo hoặc tên app */}
+        <Link href="/" className="font-bold text-lg">MyApp</Link>
 
-        {/* ✅ Phần bên phải: Hiển thị Avatar hoặc nút Login */}
-        <div className="flex items-center space-x-2">
+        {/* Phần bên phải: avatar hoặc login */}
+        <div>
           {loading ? (
-            // ✅ Khi đang loading, hiển thị một placeholder để UX tốt hơn
-            <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+            // Đang kiểm tra trạng thái → hiển thị skeleton
+            <Skeleton className="h-10 w-10 rounded-full" />
           ) : profile ? (
-            // ✅ Nếu đã có profile (đã đăng nhập), hiển thị Dropdown Menu
+            // Đã đăng nhập và có thông tin → hiện avatar dropdown
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                {/* 
-                  - Trigger là component Avatar. 
-                  - `asChild` cho phép DropdownMenu "mượn" component con làm trigger
-                    thay vì tạo một button mặc định.
-                */}
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10 cursor-pointer">
-                    <AvatarImage src={profile.avatar_url} alt={profile.username} />
-                    <AvatarFallback>{getInitials(profile.full_name)}</AvatarFallback>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage
+                      src={profile.avatar_url}
+                      alt={`@${profile.username}`}
+                    />
+                    <AvatarFallback>
+                      {getInitials(profile.full_name)}
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{profile.full_name}</p>
+                    <p className="text-sm font-medium leading-none">
+                      {profile.full_name}
+                    </p>
                     <p className="text-xs leading-none text-muted-foreground">
                       @{profile.username}
                     </p>
                   </div>
                 </DropdownMenuLabel>
+
                 <DropdownMenuSeparator />
-                {/* 
-                  - Dùng `onClick` với `router.push` thay vì thẻ <Link> 
-                  - Lý do: Giữ nguyên được style và hành vi (hover, focus) của DropdownMenuItem.
-                */}
+
                 <DropdownMenuItem onClick={() => router.push(`/@${profile.username}`)}>
                   Profile
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push('/settings')}>
                   Settings
                 </DropdownMenuItem>
+
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-500 focus:text-red-500"
+                >
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            // ✅ Nếu chưa đăng nhập, hiển thị nút Login
+            // Không có user → hiện nút Login
             <Button onClick={handleLogin}>Log In</Button>
           )}
         </div>
