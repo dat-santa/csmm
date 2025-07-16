@@ -45,6 +45,8 @@ export default function Header() {
             src={userAvatar}
             alt="User Avatar"
             className="w-8 h-8 rounded-full object-cover"
+            width={32}
+            height={32}
           />
         ) : (
           // ✅ Nếu chưa có avatar (đang loading hoặc chưa đăng nhập), hiển thị hình tròn xám
