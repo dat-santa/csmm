@@ -12,9 +12,13 @@ const supabase = createClient();
 
 export default function GoogleOneTap() {
   // ✅ Hàm này được gọi khi script Google load xong
-  const handleGoogleLoad = () => {
+  const handleGoogleLoad = async () => {
     // 🔒 Kiểm tra nếu Google SDK đã có và clientId hợp lệ
     if (!window.google || !clientId) return;
+  
+    // ✅ Kiểm tra trạng thái đăng nhập Supabase trước
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return; // ⛔ Nếu đã đăng nhập rồi thì KHÔNG gọi One Tap nữa
 
     // ✅ Khởi tạo Google One Tap
     window.google.accounts.id.initialize({
@@ -45,7 +49,7 @@ export default function GoogleOneTap() {
     <Script
       src="https://accounts.google.com/gsi/client"
       strategy="afterInteractive" // ✅ Tải sau khi page đã interactive (đề xuất bởi Next.js)
-      onLoad={handleGoogleLoad} // ✅ Gọi init đúng thời điểm
+      onLoad={handleGoogleLoad} // ✅ Gọi init đúng thời điểm, sau khi load xong script moi goi OneTap
     />
   );
 }
