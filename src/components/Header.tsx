@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 // ✅ Import hàm tạo Supabase client phía client-side
 import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 
 // ✅ Khởi tạo Supabase client để dùng cho auth, user, v.v.
 const supabase = createClient();
@@ -40,7 +41,7 @@ export default function Header() {
       <div className="flex items-center space-x-2">
         {userAvatar ? (
           // ✅ Nếu đã có avatar, hiển thị ảnh tròn
-          <img
+          <Image
             src={userAvatar}
             alt="User Avatar"
             className="w-8 h-8 rounded-full object-cover"
