@@ -1,6 +1,6 @@
 "use client"; // ✅ Bắt buộc để chạy mã trên trình duyệt (Next.js App Router)
 
-import { useEffect } from "react";
+//import { useEffect } from "react";
 import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 
