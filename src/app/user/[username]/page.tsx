@@ -14,7 +14,12 @@ type UserProfileProps = {
 export const revalidate = 60;
 
 // 🧠 Component server-side: trang hồ sơ người dùng
-export default async function UserProfile({ params }: UserProfileProps) {
+export default async function UserProfile({
+    params 
+}: {
+    params: {username: string }
+}) {
+
   // ✅ Tạo Supabase client (không cần await nếu client không async)
   const supabase = await createClient();
 
