@@ -3,12 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 
-// 🧾 Định nghĩa props cho component, dùng đúng kiểu của App Router
+/* xóa bỏ hoàn toàn phần định nghĩa này // 🧾 Định nghĩa props cho component, dùng đúng kiểu của App Router
 type UserProfileProps = {
   params: {
     username: string;
   };
-};
+}; */
 
 // 🕒 Cấu hình ISR: dữ liệu sẽ revalidate mỗi 60 giây
 export const revalidate = 60;
