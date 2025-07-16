@@ -16,5 +16,5 @@ export function middleware(req: NextRequest) {
 
 // chỉ áp dụng với username
 export const config = {
-    matcher: ["/@", "/@:*"], // chỉ áp dụng với URL /@...
+    matcher: ["/@", "/@:username"], // cách gợi ý của Next.js (đúng cú pháp)
   };
